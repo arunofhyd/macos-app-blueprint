@@ -18,20 +18,22 @@ description: >
 
 1. [Architecture Overview](#1-architecture-overview)
 2. [Repository File Structure](#2-repository-file-structure)
-3. [version.json — Single Source of Truth](#3-versionjson--single-source-of-truth)
-4. [Info.plist Template](#4-infoplist-template)
-5. [Swift App Constants & Version Loading](#5-swift-app-constants--version-loading)
-6. [In-App Update Checker (Swift)](#6-in-app-update-checker-swift)
-7. [Auto-Update Downloader (Swift)](#7-auto-update-downloader-swift)
-8. [Install Script (.command) Pattern](#8-install-script-command-pattern)
-9. [Interactive Drag-to-Applications GUI (Swift)](#9-interactive-drag-to-applications-gui-swift)
-10. [build_app.sh — Local Build Script](#10-build_appsh--local-build-script)
-11. [GitHub Actions Auto-Release Workflow](#11-github-actions-auto-release-workflow)
-12. [README.md Template](#12-readmemd-template)
-13. [Landing Page (index.html) Pattern](#13-landing-page-indexhtml-pattern)
-14. [Portfolio Integration Pattern](#14-portfolio-integration-pattern)
-15. [Homebrew Cask Tap (Optional)](#15-homebrew-cask-tap-optional)
-16. [Version Bumping Checklist](#16-version-bumping-checklist)
+3. [Bundle Identifier Standard: com.aoh.APPNAME (Permission Persistence)](#3-bundle-identifier-standard-comaohappname-permission-persistence)
+4. [Development, Testing & Git Push Rules](#4-development-testing--git-push-rules)
+5. [version.json — Single Source of Truth](#5-versionjson--single-source-of-truth)
+6. [Info.plist Template](#6-infoplist-template)
+7. [Swift App Constants & Version Loading](#7-swift-app-constants--version-loading)
+8. [In-App Update Checker (Swift)](#8-in-app-update-checker-swift)
+9. [Auto-Update Downloader (Swift)](#9-auto-update-downloader-swift)
+10. [Install Script (.command) Pattern](#10-install-script-command-pattern)
+11. [Interactive Drag-to-Applications GUI (Swift)](#11-interactive-drag-to-applications-gui-swift)
+12. [build_app.sh — Local Build Script](#12-build_appsh--local-build-script)
+13. [GitHub Actions Auto-Release Workflow](#13-github-actions-auto-release-workflow)
+14. [README.md Template](#14-readmemd-template)
+15. [Landing Page (index.html) Pattern](#15-landing-page-indexhtml-pattern)
+16. [Portfolio Integration Pattern](#16-portfolio-integration-pattern)
+17. [Homebrew Cask Tap (Optional)](#17-homebrew-cask-tap-optional)
+18. [Version Bumping Checklist](#18-version-bumping-checklist)
 
 ---
 
@@ -59,6 +61,7 @@ Push version.json to main → GitHub Actions auto-release → .zip on Releases
 2. **Build locally, trust automatically**: The install script compiles Swift on the user's Mac so Gatekeeper never blocks it.
 3. **CI mirrors the local build**: GitHub Actions runs the same `install-*.command` in CI mode (`CI=true`) to produce the release zip.
 4. **Update check = fetch version.json**: The app fetches `version.json` from GitHub raw, compares semver, and shows a native alert with changelog.
+5. **Standard Bundle Identifier**: Always use `com.aoh.<appname>` to preserve macOS system permissions across all updates.
 
 ---
 
@@ -70,7 +73,7 @@ MyApp/
 │   └── workflows/
 │       └── auto-release.yml        # GitHub Actions: build + release on version bump
 ├── MyApp.swift                      # Main Swift source (single-file app)
-├── Info.plist                       # macOS app bundle metadata
+├── Info.plist                       # macOS app bundle metadata (CFBundleIdentifier: com.aoh.myapp)
 ├── build_app.sh                     # Local dev build script
 ├── install-myapp.command            # One-liner installer (compiles + GUI drag-to-Apps)
 ├── version.json                     # Single Source of Truth for version + changelog
@@ -84,7 +87,56 @@ MyApp/
 
 ---
 
-## 3. version.json — Single Source of Truth
+## 3. Bundle Identifier Standard: com.aoh.APPNAME (Permission Persistence)
+
+> [!IMPORTANT]
+> **CRITICAL RULE**: Every macOS app MUST use the standard Bundle Identifier format:
+> `com.aoh.<appname>` (e.g. `com.aoh.cliplocal`, `com.aoh.html2pptx`, `com.aoh.rec`, `com.aoh.jobsmonitor`, `com.aoh.snapback`).
+
+### Why This Is Essential:
+macOS TCC (Transparency, Consent, and Control) ties system permissions directly to the **Bundle Identifier** and app path:
+- **Accessibility Permissions** (keyboard shortcuts, clipboard monitoring, layout management)
+- **Screen & System Audio Recording** permissions
+- **Full Disk / File Access**
+- **Apple Keychain Access Groups & Service Names**
+- **System Notifications**
+
+If the bundle identifier varies (e.g., changing between `com.arunthomas.app`, `com.aoh.app`, or `com.user.app`), macOS treats the update as an unknown foreign application and **revokes all permissions, forcing the user to manually re-grant them in System Settings on every update**.
+
+By strictly maintaining **`com.aoh.<appname>`** across:
+1. `Info.plist` (`CFBundleIdentifier` = `com.aoh.__appname__`)
+2. In-app Keychain Service identifier (`service = "com.aoh.__appname__"`)
+3. LaunchAgent plist names (`~/Library/LaunchAgents/com.aoh.__appname__.plist`)
+4. App bundle install destination (`/Applications/__APP_NAME__.app`)
+
+All existing macOS permissions are **reused seamlessly without fresh permission prompts across every future update**.
+
+---
+
+## 4. Development, Testing & Git Push Rules (CRITICAL)
+
+### Rule 1: Local Iteration & UI Testing (Do NOT Bump Version Yet)
+- When making code changes, UI tweaks, or bug fixes during development and testing:
+  - **DO NOT bump the version number in `version.json`** for intermediate test builds.
+  - Rebuild the local application bundle using `build_app.sh` (or `swiftc`).
+  - Automatically restart/relaunch the application (`killall <AppName> 2>/dev/null || true && sleep 1 && open -a "/path/to/<AppName>.app"`) so the user can immediately test and visually verify the change on screen.
+  - Leave the app running and await user feedback.
+
+### Rule 2: Git Push Constraint (Explicit Permission Required)
+- **NEVER execute `git push` automatically.**
+- Stage changes or commit locally as needed, but **ONLY run `git push` when the user explicitly sends a message containing the word "push" in the current turn**.
+
+### Rule 3: Release & Update Verification
+- Once the user is satisfied with local testing and explicitly says **"push"**:
+  1. Bump the version number in **`version.json`** (e.g. `1.0.0` ➔ `1.0.1`) and append the bulleted release notes to `"changelog"`.
+  2. Rebuild the app so `Info.plist` reflects the new version.
+  3. Commit all changes and push to `origin main`.
+  4. GitHub Actions CI will automatically build and publish the release `v1.0.1` with `.zip` attached.
+  5. The user can then click **"Check for Updates"** in the app's About / Info window (or the agent can verify via GitHub API) to confirm the new release is live!
+
+---
+
+## 5. version.json — Single Source of Truth
 
 This is the ONLY file you edit when releasing a new version. Everything else reads from it.
 
@@ -106,30 +158,46 @@ This is the ONLY file you edit when releasing a new version. Everything else rea
 }
 ```
 
-### Rules
-- `version` field is the current latest version (semver: `MAJOR.MINOR.PATCH`).
-- `downloadURL` points to the GitHub releases page or a landing page install section.
-- `changelog` array ordered **newest first**. Each entry: `version`, `date`, `changes[]`.
-- The Swift app fetches this at runtime for update checks.
-- GitHub Actions reads it to create release tags and notes.
-- The install script reads it to stamp Info.plist at build time.
-
 ---
 
-## 4. Info.plist Template
+## 6. Info.plist Template
 
 See full template: `templates/Info.plist`
 
-### Version Stamping (at build time via PlistBuddy)
-```bash
-VERSION=$(python3 -c "import json; print(json.load(open('version.json'))['version'])")
-/usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $VERSION" "$APP/Contents/Info.plist"
-/usr/libexec/PlistBuddy -c "Set :CFBundleVersion $VERSION" "$APP/Contents/Info.plist"
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>CFBundleExecutable</key>
+    <string>__EXECUTABLE_NAME__</string>
+    <key>CFBundleIdentifier</key>
+    <string>com.aoh.__appname__</string>
+    <key>CFBundleName</key>
+    <string>__APP_DISPLAY_NAME__</string>
+    <key>CFBundleDisplayName</key>
+    <string>__APP_DISPLAY_NAME__</string>
+    <key>CFBundlePackageType</key>
+    <string>APPL</string>
+    <key>CFBundleIconFile</key>
+    <string>AppIcon</string>
+    <key>CFBundleShortVersionString</key>
+    <string>1.0.0</string>
+    <key>CFBundleVersion</key>
+    <string>1.0.0</string>
+    <key>LSMinimumSystemVersion</key>
+    <string>13.0</string>
+    <key>NSHighResolutionCapable</key>
+    <true/>
+    <key>NSPrincipalClass</key>
+    <string>NSApplication</string>
+</dict>
+</plist>
 ```
 
 ---
 
-## 5. Swift App Constants & Version Loading
+## 7. Swift App Constants & Version Loading
 
 ### Pattern A: Read from Bundle (preferred — zero duplication)
 
@@ -142,46 +210,19 @@ let updateCheckURL = "https://raw.githubusercontent.com/USERNAME/APPNAME/main/ve
 let githubRepoURL  = "https://github.com/USERNAME/APPNAME"
 ```
 
-### Pattern B: Hardcoded constant (simpler single-file apps like ClipLocal)
-
-```swift
-let appVersion     = "1.3.7"
-let updateCheckURL = "https://raw.githubusercontent.com/USERNAME/APPNAME/main/version.json"
-let downloadPageURL = "https://myapp.vercel.app/#install"
-```
-
-**Warning**: Pattern B requires updating the Swift constant AND version.json on every release.
-
 ---
 
-## 6. In-App Update Checker (Swift)
+## 8. In-App Update Checker (Swift)
 
 Full production code in `templates/UpdateChecker.swift`. Key design:
-
 - **24-hour rate limit** on silent checks to avoid pestering
 - **Cache-busting** timestamp `?t=` param + `no-cache` headers to defeat GitHub CDN
 - **Multi-release changelog**: Shows ALL unread versions between current and latest
 - **Silent vs manual**: `silentIfCurrent: true` = app launch, `false` = user-triggered
 
-### Semver Comparison
-
-```swift
-func isNewer(_ remote: String, than current: String) -> Bool {
-    let r = remote.split(separator: ".").compactMap { Int($0) }
-    let c = current.split(separator: ".").compactMap { Int($0) }
-    for i in 0..<max(r.count, c.count) {
-        let rv = i < r.count ? r[i] : 0
-        let cv = i < c.count ? c[i] : 0
-        if rv > cv { return true }
-        if rv < cv { return false }
-    }
-    return false
-}
-```
-
 ---
 
-## 7. Auto-Update Downloader (Swift)
+## 9. Auto-Update Downloader (Swift)
 
 Downloads install script → saves to ~/Downloads → opens in Terminal:
 
@@ -204,41 +245,25 @@ func downloadAndInstallUpdate() {
 
 ---
 
-## 8. Install Script (.command) Pattern
+## 10. Install Script (.command) Pattern
 
 Full template: `templates/install-template.command`
 
-Steps:
-1. Check Xcode CLT (`xcode-select -p`)
-2. Check dependencies (Python, Node, etc.)
-3. Download source or use local clone
-4. `swiftc -O -parse-as-library MyApp.swift -o Build/MyApp`
-5. Assemble .app bundle
-6. PlistBuddy version stamp
-7. If `CI=true` → exit. Else → open GUI.
-
 ---
 
-## 9. Interactive Drag-to-Applications GUI
+## 11. Interactive Drag-to-Applications GUI
 
 Full template: `templates/InstallerGUI.swift`
 
-Embedded as heredoc in install script. Components:
-- `DragIcon` — draggable app icon
-- `DropZone` — Applications folder drop target
-- `GradientArrowView` — brand-colored arrow
-- `OrangeInstallButton` — 1-click install
-- `performInstallation()` — copy to /Applications + alert
-
 ---
 
-## 10. build_app.sh — Local Build Script
+## 12. build_app.sh — Local Build Script
 
 Full template: `templates/build_app.sh`
 
 ---
 
-## 11. GitHub Actions Auto-Release Workflow
+## 13. GitHub Actions Auto-Release Workflow
 
 Full template: `templates/auto-release.yml`
 
@@ -246,13 +271,13 @@ Triggers: `version.json` or `.github/**` push to main, plus `workflow_dispatch`.
 
 ---
 
-## 12. README.md Template
+## 14. README.md Template
 
 Full template: `templates/README.template.md`
 
 ---
 
-## 13. Landing Page (index.html) Pattern
+## 15. Landing Page (index.html) Pattern
 
 Key elements:
 - SEO meta (title, desc, keywords, OG, Twitter, JSON-LD)
@@ -262,7 +287,7 @@ Key elements:
 
 ---
 
-## 14. Portfolio Integration
+## 16. Portfolio Integration
 
 Add to `my-portfolio/index.html` macOS Utilities `<ul>`:
 
@@ -282,13 +307,13 @@ Add to `my-portfolio/index.html` macOS Utilities `<ul>`:
 
 ---
 
-## 15. Homebrew Cask Tap (Optional)
+## 17. Homebrew Cask Tap (Optional)
 
 Full template: `templates/homebrew-cask.rb`
 
 ---
 
-## 16. Version Bumping Checklist
+## 18. Version Bumping Checklist
 
 1. Edit `version.json` → bump version, add changelog at TOP
 2. If Pattern B: update `let appVersion` in Swift
@@ -300,12 +325,13 @@ Full template: `templates/homebrew-cask.rb`
 
 ## Quick Reference: Placeholders
 
-| Placeholder | ClipLocal | HTML2PPTX |
+| Placeholder | Example | Description |
 |---|---|---|
-| `__APP_NAME__` | ClipLocal | HTML2PPTX |
-| `__BUNDLE_ID__` | com.aoh.cliplocal | com.arunthomas.html2pptx |
-| `USERNAME` | arunofhyd | arunofhyd |
-| Brand Color | Blue (#0A84FF) | Orange (#F97316) |
+| `__APP_NAME__` | ClipLocal | App display name & binary |
+| `com.aoh.__appname__` | `com.aoh.cliplocal` | Standard Bundle ID (persists permissions) |
+| `USERNAME` | arunofhyd | GitHub username |
+| `APPNAME` | ClipLocal | GitHub repo name |
+| Brand Color | Blue (#0A84FF) / Orange (#F97316) | Accent theme |
 
 ---
 

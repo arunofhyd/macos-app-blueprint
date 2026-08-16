@@ -7,7 +7,7 @@
     <key>CFBundleExecutable</key>
     <string>__EXECUTABLE_NAME__</string>
     <key>CFBundleIdentifier</key>
-    <string>__BUNDLE_ID__</string>
+    <string>com.aoh.__appname__</string>
     <key>CFBundleInfoDictionaryVersion</key>
     <string>6.0</string>
     <key>CFBundleName</key>
