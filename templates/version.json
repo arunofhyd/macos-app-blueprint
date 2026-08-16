@@ -1,0 +1,16 @@
+{
+  "version": "1.0.0",
+  "downloadURL": "https://github.com/USERNAME/APPNAME/releases/latest",
+  "changelog": [
+    {
+      "version": "1.0.0",
+      "date": "2026-08-16",
+      "changes": [
+        "Initial release of __APP_NAME__.",
+        "High-performance native macOS utility built with Swift.",
+        "100% on-device privacy with zero external telemetry.",
+        "Adaptive concurrency and modern system integration."
+      ]
+    }
+  ]
+}

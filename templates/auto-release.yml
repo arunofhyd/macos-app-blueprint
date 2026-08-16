@@ -1,0 +1,93 @@
+name: Auto Release
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'version.json'
+      - '.github/**'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: macos-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Get Version from version.json
+        run: |
+          VERSION=$(jq -r '.version' version.json)
+          echo "VERSION=$VERSION" >> $GITHUB_ENV
+
+      - name: Extract Changelog
+        run: |
+          CHANGELOG=$(jq -r --arg v "$VERSION" \
+            '.changelog[] | select(.version == $v) | .changes[] | "- " + .' \
+            version.json)
+          echo "CHANGELOG<<EOF" >> $GITHUB_ENV
+          echo "$CHANGELOG" >> $GITHUB_ENV
+          echo "EOF" >> $GITHUB_ENV
+
+      - name: Check if Release Exists
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if gh release view "v$VERSION" > /dev/null 2>&1; then
+            echo "Release v$VERSION already exists. Skipping."
+            echo "skip=true" >> $GITHUB_ENV
+          else
+            echo "skip=false" >> $GITHUB_ENV
+          fi
+
+      - name: Build App (CI Mode)
+        if: env.skip == 'false'
+        env:
+          CI: "true"
+        run: |
+          chmod +x install-__appname__.command
+          ./install-__appname__.command
+
+      - name: Zip & Release
+        if: env.skip == 'false'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          cd Build && zip -r ../__APP_NAME__.zip "__APP_NAME__.app" && cd ..
+          gh release create "v$VERSION" __APP_NAME__.zip \
+            --title "v$VERSION" \
+            --notes "$CHANGELOG" \
+            --target "$GITHUB_SHA"
+
+      - name: Calculate SHA256
+        if: env.skip == 'false'
+        run: |
+          SHA256=$(shasum -a 256 __APP_NAME__.zip | awk '{ print $1 }')
+          echo "SHA256=$SHA256" >> $GITHUB_ENV
+          echo "Computed SHA256: $SHA256"
+
+      # ── Optional: Homebrew Tap Auto-Update ──
+      # Uncomment the steps below if you have a homebrew-__appname__ tap repo
+      # Requires a HOMEBREW_TAP_TOKEN secret with repo scope
+      #
+      # - name: Checkout Homebrew Tap
+      #   if: env.skip == 'false'
+      #   uses: actions/checkout@v4
+      #   with:
+      #     repository: USERNAME/homebrew-__appname__
+      #     token: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+      #     path: homebrew-tap
+      #
+      # - name: Update Cask Formula
+      #   if: env.skip == 'false'
+      #   run: |
+      #     cd homebrew-tap
+      #     sed -i '' -e "s/version \".*\"/version \"$VERSION\"/" Casks/__appname__.rb
+      #     sed -i '' -e "s/sha256 \".*\"/sha256 \"$SHA256\"/" Casks/__appname__.rb
+      #     git config user.name "github-actions[bot]"
+      #     git config user.email "github-actions[bot]@users.noreply.github.com"
+      #     git add Casks/__appname__.rb
+      #     git diff --staged --quiet || git commit -m "Update __appname__ to v$VERSION" && git push
