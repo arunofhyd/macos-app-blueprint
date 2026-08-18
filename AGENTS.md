@@ -214,11 +214,44 @@ let githubRepoURL  = "https://github.com/USERNAME/APPNAME"
 
 ## 8. In-App Update Checker (Swift)
 
-Full production code in `templates/UpdateChecker.swift`. Key design:
+Key design principles:
 - **24-hour rate limit** on silent checks to avoid pestering
 - **Cache-busting** timestamp `?t=` param + `no-cache` headers to defeat GitHub CDN
 - **Multi-release changelog**: Shows ALL unread versions between current and latest
 - **Silent vs manual**: `silentIfCurrent: true` = app launch, `false` = user-triggered
+- **Hardware-Accelerated 120Hz SwiftUI ScrollView**: Use `NSHostingView(rootView: ChangelogAlertView(...))` in `alert.accessoryView` for silky-smooth momentum scrolling (avoids legacy AppKit `NSTextView` software rasterization lag):
+
+```swift
+struct ChangelogAlertView: View {
+    let changelog: String
+    var body: some View {
+        ScrollView(.vertical, showsIndicators: true) {
+            VStack(alignment: .leading, spacing: 6) {
+                Text(changelog)
+                    .font(.system(size: 12, weight: .regular))
+                    .foregroundColor(Color(NSColor.labelColor))
+                    .lineSpacing(3)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .padding(12)
+        }
+        .frame(width: 360, height: 150)
+        .background(Color(NSColor.controlBackgroundColor))
+        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .stroke(Color(NSColor.separatorColor).opacity(0.4), lineWidth: 1)
+        )
+    }
+}
+
+func createChangelogView(changelog: String) -> NSView {
+    let hostingView = NSHostingView(rootView: ChangelogAlertView(changelog: changelog))
+    hostingView.frame = NSRect(x: 0, y: 0, width: 360, height: 150)
+    return hostingView
+}
+```
 
 ---
 

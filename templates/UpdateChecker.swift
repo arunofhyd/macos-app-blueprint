@@ -1,6 +1,6 @@
 // =============================================================================
 //  UpdateChecker.swift — In-App Update Checker + Auto-Updater
-//  Template extracted from ClipLocal & HTML2PPTX by Arun Thomas
+//  Template extracted from ClipLocal, JobsMonitor, Rec & HTML2PPTX by Arun Thomas
 //
 //  USAGE: Paste these functions into your app's main Swift file.
 //  Replace __PLACEHOLDERS__ with your actual values.
@@ -105,27 +105,29 @@ func isNewer(_ remote: String, than current: String) -> Bool {
     return false
 }
 
-// MARK: - Update Available Alert
+// MARK: - Hardware-Accelerated Update Available Alert
 
 struct UpdateChangelogView: View {
     let changelog: String
 
     var body: some View {
         ScrollView(.vertical, showsIndicators: true) {
-            Text(changelog)
-                .font(.system(size: 12, weight: .regular))
-                .foregroundColor(.primary)
-                .lineSpacing(3)
-                .multilineTextAlignment(.leading)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(10)
+            VStack(alignment: .leading, spacing: 6) {
+                Text(changelog)
+                    .font(.system(size: 12, weight: .regular))
+                    .foregroundColor(Color(NSColor.labelColor))
+                    .lineSpacing(3)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .padding(12)
         }
-        .frame(width: 340, height: 140)
+        .frame(width: 360, height: 150)
         .background(Color(NSColor.controlBackgroundColor))
-        .clipShape(RoundedRectangle(cornerRadius: 8))
+        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
         .overlay(
-            RoundedRectangle(cornerRadius: 8)
-                .stroke(Color.secondary.opacity(0.2), lineWidth: 1)
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .stroke(Color(NSColor.separatorColor).opacity(0.4), lineWidth: 1)
         )
     }
 }
@@ -137,7 +139,7 @@ func showUpdateAlert(remote: String, changelog: String, downloadURL: String) {
     alert.informativeText = "You have v\(appVersion). Here's what's new:"
     if !changelog.isEmpty {
         let hosting = NSHostingView(rootView: UpdateChangelogView(changelog: changelog))
-        hosting.frame = NSRect(x: 0, y: 0, width: 340, height: 140)
+        hosting.frame = NSRect(x: 0, y: 0, width: 360, height: 150)
         alert.accessoryView = hosting
     }
     alert.addButton(withTitle: "Update Now")
