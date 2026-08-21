@@ -264,14 +264,15 @@ func createChangelogView(changelog: String) -> NSView {
 
 ## 9. Auto-Update Downloader (Swift)
 
-Downloads install script → saves to ~/Downloads → opens in Terminal:
+Downloads install script → validates HTTP 200 (avoids executing 404 text) → saves to `~/Downloads` → opens in Terminal:
 
 ```swift
 func downloadAndInstallUpdate() {
     let url = URL(string: "https://raw.githubusercontent.com/USERNAME/APPNAME/main/install-myapp.command")!
-    URLSession.shared.downloadTask(with: url) { tempURL, _, error in
+    URLSession.shared.downloadTask(with: url) { tempURL, response, error in
         DispatchQueue.main.async {
-            guard error == nil, let tempURL = tempURL else { return }
+            let statusCode = (response as? HTTPURLResponse)?.statusCode ?? 0
+            guard error == nil, statusCode == 200, let tempURL = tempURL else { return }
             let dest = FileManager.default.urls(for: .downloadsDirectory, in: .userDomainMask).first!
                 .appendingPathComponent("install-myapp.command")
             try? FileManager.default.removeItem(at: dest)
