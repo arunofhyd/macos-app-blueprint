@@ -197,18 +197,25 @@ See full template: `templates/Info.plist`
 
 ---
 
-## 7. Swift App Constants & Version Loading
+## 7. Swift App Constants & Version Loading (Zero Duplication Standard)
 
-### Pattern A: Read from Bundle (preferred — zero duplication)
+> [!IMPORTANT]
+> **MANDATORY PATTERN**: Never hardcode a static version string in Swift (`let appVersion = "1.0.0"`).
+> Always dynamically read from `CFBundleShortVersionString` in the app bundle so `version.json` remains the Single Source of Truth:
 
 ```swift
 let appVersion: String = {
     if let v = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String, !v.isEmpty { return v }
-    return "1.0.0"
+    return "1.0.0" // Fallback
 }()
 let updateCheckURL = "https://raw.githubusercontent.com/USERNAME/APPNAME/main/version.json"
 let githubRepoURL  = "https://github.com/USERNAME/APPNAME"
 ```
+
+### Why Dynamic Bundle Loading is Critical:
+1. **Zero Version Drift**: When you bump `version.json`, you never have to remember to edit Swift source files.
+2. **Installer Parity**: `install-app.command` and `build_app.sh` parse `version.json`, stamp `Info.plist`, and the running Swift binary automatically reads the exact version.
+3. **No Gatekeeper / Quarantine mismatches**: Stamped version and compiled version are always 100% identical.
 
 ---
 
@@ -347,12 +354,13 @@ Full template: `templates/homebrew-cask.rb`
 ---
 
 ## 18. Version Bumping Checklist
-
-1. Edit `version.json` → bump version, add changelog at TOP
-2. If Pattern B: update `let appVersion` in Swift
-3. `git add . && git commit -m "Release vX.Y.Z" && git push`
-4. GitHub Actions auto-builds + publishes release
-5. Verify: `https://github.com/USERNAME/APPNAME/releases/latest`
+ 
+ 1. Edit `version.json` → bump `"version"` (e.g. `1.0.0` ➔ `1.0.1`), add changelog entry at TOP of `"changelog"`.
+ 2. Test locally with `./build_app.sh` (or `install-*.command`) → automatically reads `version.json` and updates `Info.plist`.
+ 3. `git add . && git commit -m "Release vX.Y.Z"` (keep staged / committed locally until user explicitly asks to push).
+ 4. When user says **"push"**: `git push origin main`.
+ 5. GitHub Actions auto-builds, tests in CI, tags `vX.Y.Z`, attaches `.zip` to GitHub Releases, and updates Homebrew Tap formula.
+ 6. Verify: `https://github.com/USERNAME/APPNAME/releases/latest`
 
 ---
 
