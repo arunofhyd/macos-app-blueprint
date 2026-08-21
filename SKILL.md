@@ -223,6 +223,11 @@ let githubRepoURL  = "https://github.com/USERNAME/APPNAME"
 
 ## 8. In-App Update Checker (Swift)
 
+> [!NOTE]
+> **Update Check Trigger Location**:
+> - **Menu Bar Apps** (with persistent status item menu): Provide **"Check for Updates..."** as a menu item in the status bar menu (and optionally in About).
+> - **Standalone / Modal Apps**: Provide an **"Updates"** pill button directly in the **About Window** with a responsive `Checking...` loading state.
+
 Key design principles:
 - **24-hour rate limit** on silent checks to avoid pestering
 - **Cache-busting** timestamp `?t=` param + `no-cache` headers to defeat GitHub CDN
@@ -379,10 +384,12 @@ Every app in the portfolio features a unified, signature About window:
    - 11.5pt Regular Feature Description with 2pt line spacing.
 4. **Author Note**:
    - "Built by Arun Thomas" at 11.5pt semibold (`.secondaryLabelColor`).
-5. **Action Buttons (4 Capsule/Pill Buttons)**:
+5. **Action Buttons (3 or 4 Capsule/Pill Buttons)**:
    - **`Contact`**: White background, black text. Opens `mailto:arunthomas04042001@gmail.com?subject=...`.
    - **`GitHub`**: Black background, white text. Opens repository URL.
-   - **`Updates`**: Translucent/secondary background. Triggers `checkForUpdates()` with live `Checking...` loading state.
+   - **`Updates` (Contextual Placement)**:
+     - **Standalone / Window / Modal Apps** (e.g. `HTML2PPTX`, `SnapBack`): Include the **`Updates`** pill button with live `Checking...` loading state in the About window.
+     - **Menu Bar Apps with Status Item Dropdown** (e.g. `ClipLocal`, `Rec`, `JobsMonitor`): "Check for Updates..." is primarily placed in the persistent **Menu Bar Dropdown Menu**, and can optionally also appear in the About window.
    - **`Done`**: Accent color background, white text. Closes window.
 6. **Modal Session Handling**:
    - For apps running a modal loop (e.g. `NSAlert.runModal()`), `showAbout()` runs `NSApp.runModal(for: win)` and closes via `NSApp.stopModal()` to keep the window on top and 100% interactive.
