@@ -33,7 +33,9 @@ description: >
 15. [Landing Page (index.html) Pattern](#15-landing-page-indexhtml-pattern)
 16. [Portfolio Integration Pattern](#16-portfolio-integration-pattern)
 17. [Homebrew Cask Tap (Optional)](#17-homebrew-cask-tap-optional)
-18. [Version Bumping Checklist](#18-version-bumping-checklist)
+18. [Signature About Window Blueprint](#18-signature-about-window-blueprint-swift--appkit--swiftui)
+19. [Signature Permissions & Setup Guide Blueprint](#19-signature-permissions--setup-guide-blueprint-live-polling--dynamic-checkmarks)
+20. [Version Bumping Checklist](#20-version-bumping-checklist)
 
 ---
 
@@ -354,7 +356,64 @@ Full template: `templates/homebrew-cask.rb`
 
 ---
 
-## 18. Version Bumping Checklist
+
+---
+
+## 18. Signature About Window Blueprint (Swift / AppKit & SwiftUI)
+
+Every app in the portfolio features a unified, signature About window:
+
+### Key Design Elements:
+1. **Window Style**:
+   - `styleMask: [.titled, .closable, .fullSizeContentView]`, `titleVisibility = .hidden`, `titlebarAppearsTransparent = true`, `isMovableByWindowBackground = true`, `level = .floating`.
+   - `NSVisualEffectView` with `material = .popover`, `blendingMode = .behindWindow`, `state = .active`.
+   - Size: `460px` to `490px` width, with comfortable vertical padding.
+2. **Header**:
+   - 64×64 High-DPI App Icon.
+   - 24pt Bold Title.
+   - 11.5pt Medium Version subtitle (`.tertiaryLabelColor`).
+   - 12pt Medium Tagline / Subtitle (`.secondaryLabelColor`).
+3. **Feature Cards**:
+   - SF Symbols with vibrant system color tints (`systemCyan`, `systemGreen`, `systemPurple`, `systemBlue`, `systemPink`).
+   - 13pt Semibold Feature Title.
+   - 11.5pt Regular Feature Description with 2pt line spacing.
+4. **Author Note**:
+   - "Built by Arun Thomas" at 11.5pt semibold (`.secondaryLabelColor`).
+5. **Action Buttons (4 Capsule/Pill Buttons)**:
+   - **`Contact`**: White background, black text. Opens `mailto:arunthomas04042001@gmail.com?subject=...`.
+   - **`GitHub`**: Black background, white text. Opens repository URL.
+   - **`Updates`**: Translucent/secondary background. Triggers `checkForUpdates()` with live `Checking...` loading state.
+   - **`Done`**: Accent color background, white text. Closes window.
+6. **Modal Session Handling**:
+   - For apps running a modal loop (e.g. `NSAlert.runModal()`), `showAbout()` runs `NSApp.runModal(for: win)` and closes via `NSApp.stopModal()` to keep the window on top and 100% interactive.
+
+---
+
+## 19. Signature Permissions & Setup Guide Blueprint (Live Polling & Dynamic Checkmarks)
+
+For apps requiring system permissions (`ClipLocal`, `Rec`, `SnapBack`), the setup window provides real-time verification:
+
+### Key Design & Logic Elements:
+1. **Visual Presentation**:
+   - Popover visual effect view with high-res icon, bold title, and informative subtitle.
+   - System permission rows (e.g. Accessibility, Screen Recording, Microphone, Automation, Launch at Login, Menu Bar Icon).
+2. **Live Auto-Polling Status (0.8s Timer)**:
+   - Uses `Timer(timeInterval: 0.8, target: ..., selector: ..., repeats: true)` added to `RunLoop.current` with `.common` mode.
+   - Checks permission states in real time:
+     - **Accessibility**: `AXIsProcessTrusted()`
+     - **Screen Recording**: `CGPreflightScreenCaptureAccess()`
+     - **Microphone**: `AVCaptureDevice.authorizationStatus(for: .audio) == .authorized`
+     - **Launch at Login**: `SMAppService.mainApp.status == .enabled`
+     - **Menu Bar Icon**: `statusItem != nil`
+3. **Dynamic Button State Toggle**:
+   - When granted: Button shows green **`"✓"`** (or **`"Enabled"`**).
+   - When ungranted: Button shows **`"Open"`** (or **`"Enable"`**).
+   - **CRITICAL**: Buttons remain clickable even after permissions are granted, allowing users to jump directly to macOS System Settings anytime.
+4. **Done Action**:
+   - Saves `HasShownFirstRunPermissions = true` in `UserDefaults`.
+   - Invalidates timer and cleans up modal state.
+
+## 20. Version Bumping Checklist
  
  1. Edit `version.json` → bump `"version"` (e.g. `1.0.0` ➔ `1.0.1`), add changelog entry at TOP of `"changelog"`.
  2. Test locally with `./build_app.sh` (or `install-*.command`) → automatically reads `version.json` and updates `Info.plist`.
